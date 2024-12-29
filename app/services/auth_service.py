@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.utils.security import hash_password, verify_password
 from app.utils.jwt import create_access_token
+from app.models.admin import Admin
 from datetime import timedelta
 import uuid
 from fastapi import HTTPException
@@ -50,3 +51,12 @@ def login_user(account: str, password: str, db: Session):
         raise HTTPException(status_code=401, detail="Invalid account or password")
     access_token = create_access_token(data={"sub": user.account}, expires_delta=timedelta(days=1))
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+def admin_login(account: str, password: str, db: Session):
+    """管理员登录"""
+    admin =db.query(Admin).filter(Admin.account == account).first()
+    if admin and admin.password == password:
+        return admin
+    else:
+        return None
