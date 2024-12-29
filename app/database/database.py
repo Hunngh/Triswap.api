@@ -11,7 +11,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # MySQL 数据库配置
-DATABASE_URL = "mysql+pymysql://username:password@localhost:3306/your_database_name"
+DATABASE_URL = "mysql+pymysql://root:BG7ckMhewSA7EGFF@120.46.200.190:3306/120.46.200.190"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
