@@ -11,3 +11,6 @@ from app.models.user import User
 
 def get_user_by_id(user_id: str, db: Session):
     return db.query(User).filter(User.user_id == user_id).first()
+
+def get_users(db: Session):
+    return db.query(User).all()
