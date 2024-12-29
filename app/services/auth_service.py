@@ -8,7 +8,7 @@
 
 # 用户认证服务
 from sqlalchemy.orm import Session
-from app.models.user import User
+from app.models.user_info import User
 from app.utils.security import hash_password, verify_password
 from app.utils.jwt import create_access_token
 from app.models.admin import Admin

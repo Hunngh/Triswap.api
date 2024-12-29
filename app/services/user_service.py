@@ -7,7 +7,7 @@
 # software: PyCharm
 
 from sqlalchemy.orm import Session
-from app.models.user import User
+from app.models.user_info import User
 
 def get_user_by_id(user_id: str, db: Session):
     return db.query(User).filter(User.user_id == user_id).first()
