@@ -1,11 +1,3 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-
-# file:main.py.py
-# author:软件2202 曹凛然
-# datetime:2024/12/29 14:54
-# software: PyCharm
-
 from fastapi import FastAPI
 from app.routers import auth_router
 from app.database.database import Base, engine
