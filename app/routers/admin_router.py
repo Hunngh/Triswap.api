@@ -14,21 +14,7 @@ from app.services.admin_service import admin_login,get_all_user_info,get_user_in
 from app.services.admin_service import modify_user_status,delete_user_info
 from app.database.database import get_db
 from pydantic import BaseModel
-from datetime import datetime, timedelta
-from jose import JWTError, jwt
 
-# 配置密钥和算法
-SECRET_KEY = "wtffish"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-# 定义 create_access_token 函数
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
 
 router = APIRouter()
 
@@ -39,14 +25,11 @@ class AdminLoginRequest(BaseModel):
 
 # 管理员登录
 @router.post("/api/admin/login")
-async def admin_login_route(request: AdminLoginRequest, response: Response, db: Session = Depends(get_db)):
+async def admin_login_route(request: AdminLoginRequest, db: Session = Depends(get_db)):
     """管理员登录"""
     admin = admin_login(request.account, request.password, db)
     if admin is not None:
-        access_token = create_access_token(data={"sub": admin.account})
-        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True)
-
-        return {"message": "Admin logged in successfully", "admin_account": admin.account}
+        return {"message": "Admin logged in successfully", "admin_account": admin.account,"permisson":True}
     else:
         raise HTTPException(status_code=401, detail="Incorrect account or password")
 
