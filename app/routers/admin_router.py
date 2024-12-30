@@ -1,3 +1,17 @@
+'''
+    此文档完成管理员路由
+    需要完成以下功能：
+    1. 管理员登录
+    2. 管理员查询所有用户信息
+    3. 管理员查询单个用户信息
+    4. 管理员修改用户信息
+    5. 管理员删除用户信息
+
+
+'''
+
+
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.services.auth_service import admin_login

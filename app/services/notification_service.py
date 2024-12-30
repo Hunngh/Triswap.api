@@ -1,11 +1,9 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
+'''
+    此文档完成通知的服务层代码
+    主要功能：
+    1. 验证管理员权限
+    2.发布通知
+    3.获取通知列表
+    4.删除通知
 
-# file:notification_service.py
-# author:软件2202 曹凛然
-# datetime:2024/12/29 15:58
-# software: PyCharm
-"""
-this is function  description 
-"""
-# import module your need
+'''

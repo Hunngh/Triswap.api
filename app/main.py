@@ -1,3 +1,8 @@
+
+'''api的启动文件'''
+
+
+
 from fastapi import FastAPI
 from app.routers import auth_router
 from app.database.database import Base, engine

@@ -1,11 +1,9 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
+'''
+    此文件用于定义通知相关的路由
+    需要完成以下功能：
+    1.验证账户是否是管理员
+    2.获取所有已发布的通知
+    3.发布新通知
+    4.删除已发布的通知
 
-# file:notification_router.py
-# author:软件2202 曹凛然
-# datetime:2024/12/29 15:12
-# software: PyCharm
-"""
-this is function  description 
-"""
-# import module your need
+'''
