@@ -1,12 +1,17 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, PrimaryKeyConstraint
 from app.database.database import Base
 
 class ShareInfo(Base):
     __tablename__ = "share_info"
 
-    share_id = Column(String(36), primary_key=True, nullable=False)
-    user_id = Column(Integer, primary_key=True, autoincrement=True)
-    share_content = Column(Text, nullable=False)
-    share_likes = Column(Integer, default=0)
+    share_id = Column(Integer, autoincrement=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("user_info.user_id"), nullable=False)
+    share_content = Column(String(255), nullable=False)
+    share_likes = Column(Integer, default=0, nullable=False)
     share_date = Column(DateTime, nullable=False)
-    share_comment_count = Column(Integer, default=0)
+    share_comment_count = Column(Integer, default=0, nullable=False)
+
+    # 复合主键
+    __table_args__ = (
+        PrimaryKeyConstraint("user_id", "share_id"),
+    )
