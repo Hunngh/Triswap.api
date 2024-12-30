@@ -1,62 +1,41 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-
-# file:auth_service.py
-# author:软件2202 曹凛然
-# datetime:2024/12/5 21:31
-# software: PyCharm
-
-# 用户认证服务
 from sqlalchemy.orm import Session
-from app.models.user_info import User
-from app.utils.security import hash_password, verify_password
-from app.utils.jwt import create_access_token
-from app.models.admin_account import Admin
-from datetime import timedelta
-import uuid
 from fastapi import HTTPException
+from app.models.user_info import UserInfo  # 用户模型
+from uuid import uuid4
 
 
-def register_user(account: str, email: str, password: str, db: Session):
-    """用户注册"""
-    # 检查用户名或邮箱是否已存在
-    if db.query(User).filter((User.account == account) | (User.email == email)).first():
-        raise HTTPException(status_code=400, detail="Account or email already registered")
+def register_user(account: str, password: str, email: str, db: Session):
+    """用户注册服务"""
+    # 检查账户或邮箱是否已存在
+    if db.query(UserInfo).filter(UserInfo.account == account).first():
+        raise HTTPException(status_code=400, detail="Account already exists")
+    if db.query(UserInfo).filter(UserInfo.email == email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
 
     # 创建新用户
-    new_user = User(
-        user_id=str(uuid.uuid4()),
+    new_user = UserInfo(
+        user_id=str(uuid4()),
         account=account,
+        password=password,  # 注意：这里未加密，需要在实际项目中实现加密
         email=email,
-        password=hash_password(password)
+        status="active"
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
-
-
-def authenticate_user(account: str, password: str, db: Session):
-    """验证用户登录"""
-    user = db.query(User).filter(User.account == account).first()
-    if not user or not verify_password(password, user.password):
-        return None
-    return user
+    return {"message": "User registered successfully", "user_id": new_user.user_id}
 
 
 def login_user(account: str, password: str, db: Session):
-    """用户登录"""
-    user = authenticate_user(account, password, db)
+    """用户登录服务"""
+    user = db.query(UserInfo).filter(UserInfo.account == account).first()
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid account or password")
-    access_token = create_access_token(data={"sub": user.account}, expires_delta=timedelta(days=1))
-    return {"access_token": access_token, "token_type": "bearer"}
-
-
-def admin_login(account: str, password: str, db: Session):
-    """管理员登录"""
-    admin =db.query(Admin).filter(Admin.account == account).first()
-    if admin and admin.password == password:
-        return admin
-    else:
-        return None
+        raise HTTPException(status_code=404, detail="Account does not exist")
+    if user.password != password:  # 注意：实际项目中需要对密码加密后验证
+        raise HTTPException(status_code=401, detail="Incorrect password")
+    return {
+        "user_id": user.user_id,
+        "account": user.account,
+        "email": user.email,
+        "status": user.status
+    }
