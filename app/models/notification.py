@@ -1,11 +1,9 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
+from sqlalchemy import Column, String, Text, DateTime
+from app.database.database import Base
 
-# file:notification.py
-# author:软件2202 曹凛然
-# datetime:2024/12/29 15:10
-# software: PyCharm
-"""
-this is function  description 
-"""
-# import module your need
+class Notification(Base):
+    __tablename__ = "notification"
+
+    notification_id = Column(String(36), primary_key=True, nullable=False)
+    notification_content = Column(Text, nullable=False)
+    notification_date = Column(DateTime, nullable=False)

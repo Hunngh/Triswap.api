@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.models.user_info import User
 from app.utils.security import hash_password, verify_password
 from app.utils.jwt import create_access_token
-from app.models.admin import Admin
+from app.models.admin_account import Admin
 from datetime import timedelta
 import uuid
 from fastapi import HTTPException

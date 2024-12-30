@@ -1,11 +1,3 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-
-# file:auth_router.py
-# author:软件2202 曹凛然
-# datetime:2024/12/29 15:11
-# software: PyCharm
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.services.auth_service import register_user, login_user
