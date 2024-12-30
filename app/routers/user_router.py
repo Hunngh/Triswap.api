@@ -63,7 +63,7 @@ class UserUpdateRequest(BaseModel):
     status: Optional[str] = None  # 用户状态
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UserResponse(BaseModel):
     user_id: int
@@ -78,7 +78,7 @@ class UserResponse(BaseModel):
     status: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 @router.put("/api/users/{user_id}", response_model=UserResponse)
 def update_user_info(user_id: int, user_update_request: UserUpdateRequest, db: Session = Depends(get_db)):
@@ -100,7 +100,7 @@ class UserResponse(BaseModel):
     email: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 @router.put("/api/users/{user_id}/change-password", response_model=UserResponse)
 def change_password(user_id: int, password_update_request: PasswordUpdateRequest, db: Session = Depends(get_db)):
@@ -129,7 +129,7 @@ class UserResponse(BaseModel):
     status: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 @router.get("/api/users/{account}", response_model=UserResponse)
@@ -154,7 +154,7 @@ class FollowResponse(BaseModel):
     follow_date: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 @router.post("/api/follow", response_model=FollowResponse)
 def follow_user(follow_request: FollowRequest, db: Session = Depends(get_db)):
