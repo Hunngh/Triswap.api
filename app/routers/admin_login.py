@@ -11,7 +11,7 @@ class AdminLoginRequest(BaseModel):
     account: str
     password: str
 
-@router.post("/admin/login")
+@router.post("/api/admin/login")
 async def admin_login_route(request: AdminLoginRequest, db: Session = Depends(get_db)):
     """管理员登录"""
     result = admin_login(request.account, request.password, db)
