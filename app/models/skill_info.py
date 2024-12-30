@@ -5,7 +5,7 @@ class SkillInfo(Base):
     __tablename__ = "skill_info"
 
     skill_id = Column(String(36), primary_key=True, nullable=False)
-    user_id = Column(String(36), nullable=False)
+    user_id = Column(Integer, primary_key=True, autoincrement=True)
     skill_likes = Column(Integer, default=0)
     skill_type = Column(String(50), nullable=False)
     skill_date = Column(Date, nullable=False)

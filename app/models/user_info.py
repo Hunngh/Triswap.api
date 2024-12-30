@@ -1,11 +1,11 @@
 # 用户信息模型
-from sqlalchemy import Column, String, Enum, Date
+from sqlalchemy import Column, String, Enum, Date, Integer
 from app.database.database import Base
 
 class UserInfo(Base):
     __tablename__ = "user_info"
 
-    user_id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(Integer, primary_key=True, autoincrement=True)
     account = Column(String(50), unique=True, nullable=False)
     password = Column(String(255), nullable=False)
     avator = Column(String(255), nullable=True)  # 用户头像链接
