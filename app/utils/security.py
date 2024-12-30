@@ -1,11 +1,3 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-
-# file:security.py
-# author:软件2202 曹凛然
-# datetime:2024/12/29 14:56
-# software: PyCharm
-
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

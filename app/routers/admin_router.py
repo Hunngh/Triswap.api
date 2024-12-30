@@ -14,7 +14,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.services.auth_service import admin_login
+from app.services.admin_service import admin_login
 from app.database.database import get_db
 from pydantic import BaseModel
 

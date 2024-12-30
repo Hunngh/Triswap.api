@@ -27,6 +27,8 @@ from sqlalchemy.orm import Session
 from app.database.database import get_db
 from app.models.user_info import User
 from app.services.user_service import get_user_by_account
+from app.services.user_service import register_user, login_user
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -48,9 +50,25 @@ async def get_users(db: Session = Depends(get_db)):
 
 
 #用户登录
+# 用户登录请求模型
+class LoginRequest(BaseModel):
+    email: str
+    password: str
 
+@router.post("api/login")
+def login(request: LoginRequest, db: Session = Depends(get_db)):
+    """用户登录路由"""
+    return login_user(request.email, request.password, db)
 
 #用户注册
+class RegisterRequest(BaseModel):
+    password: str
+    email: str
+
+@router.post("api/register")
+def register(request: RegisterRequest, db: Session = Depends(get_db)):
+    """用户注册路由"""
+    return register_user(request.email, request.password, db)
 
 #用户更改个人信息
 
