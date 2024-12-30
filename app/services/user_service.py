@@ -20,15 +20,6 @@
 from sqlalchemy.orm import Session
 from app.models.user_info import UserInfo
 
-
-#根据用户名获取用户记录
-def get_user_by_account(account: str, db: Session):
-    return db.query(UserInfo).filter(UserInfo.account == account).first()
-
-#直接获取所有用户记录
-def get_users(db: Session):
-    return db.query(UserInfo).all()
-
 #创建用户
 
 
