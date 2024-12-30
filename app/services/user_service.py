@@ -1,16 +1,41 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-
-# file:user_service.py
-# author:软件2202 曹凛然
-# datetime:2024/12/29 15:59
-# software: PyCharm
 
 from sqlalchemy.orm import Session
-from app.models.user_info import User
+from app.models.user_info import UserInfo
 
-def get_user_by_id(user_id: str, db: Session):
-    return db.query(User).filter(User.user_id == user_id).first()
 
+#根据用户名获取用户记录
+def get_user_by_account(account: str, db: Session):
+    return db.query(UserInfo).filter(UserInfo.account == account).first()
+
+#直接获取所有用户记录
 def get_users(db: Session):
-    return db.query(User).all()
+    return db.query(UserInfo).all()
+
+#创建用户
+
+
+#删除用户
+
+
+#更新用户个人资料
+
+
+#更新用户密码
+
+
+#用户注册
+
+
+#用户登录
+
+
+#用户关注其他用户
+
+
+
+#用户发布技能帖子，或者分享帖子
+
+
+
+#用户发表评论，或者回复评论
+
