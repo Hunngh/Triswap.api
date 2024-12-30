@@ -1,11 +1,3 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-
-# file:database.py
-# author:软件2202 曹凛然
-# datetime:2024/12/29 14:52
-# software: PyCharm
-
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
