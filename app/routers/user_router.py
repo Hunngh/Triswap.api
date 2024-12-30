@@ -25,8 +25,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.database import get_db
-from app.models.user_info import User
-from app.services.user_service import get_user_by_account
+from app.models.user_info import UserInfo
+# from app.services.user_service import get_user_by_account
 from app.services.user_service import register_user, login_user
 from pydantic import BaseModel
 
@@ -50,7 +50,6 @@ async def get_users(db: Session = Depends(get_db)):
 
 
 #用户登录
-# 用户登录请求模型
 class LoginRequest(BaseModel):
     email: str
     password: str
