@@ -16,3 +16,4 @@ class UserInfo(Base):
     email = Column(String(100), unique=True, nullable=False)
     phone = Column(String(11))
     status = Column(Enum("active", "inactive"))
+    created=Column(Date, nullable=False)
