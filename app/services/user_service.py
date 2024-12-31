@@ -14,8 +14,12 @@
     11.用户收藏评论
     12.用户获取个人信息
 '''
+
 import datetime
+import json
+from typing import Optional
 from sqlalchemy.orm import Session
+from app.models.skill_info import SkillInfo
 from app.models.user_info import UserInfo
 from app import models
 from app.database import  crud
@@ -25,15 +29,13 @@ from fastapi import HTTPException
 #删除用户
 
 
-#更新用户个人信息
 class UserService:
     def __init__(self, db: Session):
         self.db = db
 
-    #更新用户个人资料
+    # 更新用户个人信息
     def update_user_info(self, user_id: int, user_update_request: dict):
-        # 获取用户信息
-        db_user = self.db.query(models.UserInfo).filter(models.UserInfo.user_id == user_id).first()
+        db_user = self.db.query(UserInfo).filter(UserInfo.user_id == user_id).first()
 
         if db_user is None:
             raise HTTPException(status_code=404, detail="User not found")
@@ -60,10 +62,18 @@ class UserService:
 
         return db_user
 
+    # 获取用户个人信息
+    def get_user_by_id(self, user_id: int):
+        db_user = self.db.query(UserInfo).filter(UserInfo.user_id == user_id).first()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return db_user
+
+
     # 更新用户密码
     def update_user_password(self, user_id: int, old_password: str, new_password: str):
         # 获取用户
-        db_user = self.db.query(models.UserInfo).filter(models.UserInfo.user_id == user_id).first()
+        db_user = self.db.query(UserInfo).filter(UserInfo.user_id == user_id).first()
 
         if db_user is None:
             raise HTTPException(status_code=404, detail="User not found")
@@ -102,16 +112,26 @@ def register_user(email: str, password: str, db: Session):
 #用户登录
 def login_user(email: str, password: str, db: Session):
     """用户登录服务"""
+    # 查询用户信息
     user = db.query(UserInfo).filter(UserInfo.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="账号不存在")
-    if user.password != password:  # 注意：实际项目中需要对密码加密后验证
+
+    # 验证密码是否正确
+    if user.password != password:  # 明文密码直接对比
         raise HTTPException(status_code=401, detail="密码错误")
+
+    # 检查用户状态（如果需要）
+    if user.status != "active":
+        raise HTTPException(status_code=403, detail="账号被禁用")
+
+    # 返回用户的基本信息
     return {
         "user_id": user.user_id,
         "email": user.email,
         "status": user.status
     }
+
 
 
 #用户关注其他用户
@@ -139,8 +159,192 @@ class FollowService:
 
 
 #用户发布技能帖子，或者分享帖子
+class SkillService:
+    def __init__(self, db: Session):
+        self.db = db
 
+    def create_skill(self, user_id: int, skill_data: dict):
+        # 将 content 转换为 JSON 字符串
+        skill = SkillInfo(
+            user_id=user_id,
+            content=json.dumps(skill_data["content"]),  # 转为 JSON 字符串存储
+            skill_type=skill_data["skill_type"]
+        )
+        self.db.add(skill)
+        self.db.commit()
+        self.db.refresh(skill)
+        return skill
+
+class ShareService:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def create_share(self, user_id: int, share_data: dict):
+        """创建分享帖子"""
+        new_share = models.ShareInfo(
+            user_id=user_id,
+            share_content=share_data["content"],
+            share_date=datetime.now(),
+            share_likes=0,
+            share_comment_count=0
+        )
+        self.db.add(new_share)
+        self.db.commit()
+        self.db.refresh(new_share)
+        return new_share
+
+    def get_user_shares(self, user_id: int, skip: int = 0, limit: int = 10):
+        """获取用户的分享帖子列表"""
+        return self.db.query(models.ShareInfo)\
+            .filter(models.ShareInfo.user_id == user_id)\
+            .offset(skip)\
+            .limit(limit)\
+            .all()
+
+#用户点赞
+class LikeService:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def like_skill(self, user_id: int, skill_id: int):
+        """技能帖子点赞/取消点赞"""
+        # 检查是否已经点赞
+        existing_like = self.db.query(models.SkillLike).filter(
+            models.SkillLike.user_id == user_id,
+            models.SkillLike.skill_id == skill_id
+        ).first()
+
+        skill = self.db.query(models.SkillInfo).filter(models.SkillInfo.skill_id == skill_id).first()
+        if not skill:
+            raise HTTPException(status_code=404, detail="帖子不存在")
+
+        if existing_like:
+            # 取消点赞
+            self.db.delete(existing_like)
+            skill.skill_likes -= 1
+            message = "取消点赞成功"
+        else:
+            # 添加点赞
+            new_like = models.SkillLike(
+                user_id=user_id,
+                skill_id=skill_id,
+                like_date=datetime.now()
+            )
+            self.db.add(new_like)
+            skill.skill_likes += 1
+            message = "点赞成功"
+
+        self.db.commit()
+        return {"message": message}
+
+    def like_share(self, user_id: int, share_id: int):
+        """分享帖子点赞/取消点赞"""
+        existing_like = self.db.query(models.ShareLike).filter(
+            models.ShareLike.user_id == user_id,
+            models.ShareLike.share_id == share_id
+        ).first()
+
+        share = self.db.query(models.ShareInfo).filter(models.ShareInfo.share_id == share_id).first()
+        if not share:
+            raise HTTPException(status_code=404, detail="帖子不存在")
+
+        if existing_like:
+            # 取消点赞
+            self.db.delete(existing_like)
+            share.share_likes -= 1
+            message = "取消点赞成功"
+        else:
+            # 添加点赞
+            new_like = models.ShareLike(
+                user_id=user_id,
+                share_id=share_id,
+                like_date=datetime.now()
+            )
+            self.db.add(new_like)
+            share.share_likes += 1
+            message = "点赞成功"
+
+        self.db.commit()
+        return {"message": message}
+
+#用户收藏
+class FavoriteService:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def favorite_skill(self, user_id: int, skill_id: int):
+        """技能帖子收藏/取消收藏"""
+        existing_favorite = self.db.query(models.SkillFavorite).filter(
+            models.SkillFavorite.user_id == user_id,
+            models.SkillFavorite.skill_id == skill_id
+        ).first()
+
+        if existing_favorite:
+            # 取消收藏
+            self.db.delete(existing_favorite)
+            message = "取消收藏成功"
+        else:
+            # 添加收藏
+            new_favorite = models.SkillFavorite(
+                user_id=user_id,
+                skill_id=skill_id,
+                favorite_date=datetime.now()
+            )
+            self.db.add(new_favorite)
+            message = "收藏成功"
+
+        self.db.commit()
+        return {"message": message}
+
+    def get_user_favorites(self, user_id: int, skip: int = 0, limit: int = 10):
+        """获取用户的收藏列表"""
+        return self.db.query(models.SkillInfo)\
+            .join(models.SkillFavorite)\
+            .filter(models.SkillFavorite.user_id == user_id)\
+            .offset(skip)\
+            .limit(limit)\
+            .all()
 
 
 #用户发表评论，或者回复评论
+class CommentService:
+    def __init__(self, db: Session):
+        self.db = db
 
+    def create_share_comment(self, user_id: int, share_id: int, content: str, parent_id: Optional[int] = None):
+        """创建分享评论"""
+        new_comment = models.ShareComment(
+            user_id=user_id,
+            share_id=share_id,
+            comment_content=content,
+            parent_id=parent_id,
+            comment_date=datetime.now()
+        )
+        self.db.add(new_comment)
+
+        # 更新帖子的评论数
+        share = self.db.query(models.ShareInfo).filter(models.ShareInfo.share_id == share_id).first()
+        share.share_comment_count += 1
+
+        self.db.commit()
+        self.db.refresh(new_comment)
+        return new_comment
+
+    def create_skill_comment(self, user_id: int, skill_id: int, content: str, parent_id: Optional[int] = None):
+        """创建技能评论"""
+        new_comment = models.SkillComment(
+            user_id=user_id,
+            skill_id=skill_id,
+            comment_content=content,
+            parent_id=parent_id,
+            comment_date=datetime.now()
+        )
+        self.db.add(new_comment)
+
+        # 更新技能帖子的评论数
+        skill = self.db.query(models.SkillInfo).filter(models.SkillInfo.skill_id == skill_id).first()
+        skill.skill_comment_count += 1
+
+        self.db.commit()
+        self.db.refresh(new_comment)
+        return new_comment

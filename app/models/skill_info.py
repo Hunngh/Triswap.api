@@ -4,9 +4,9 @@ from app.database.database import Base
 class SkillInfo(Base):
     __tablename__ = "skill_info"
 
-    share_id = Column(Integer, autoincrement=True, nullable=False)
+    skill_id = Column(Integer, autoincrement=True, nullable=False)
     user_id = Column(Integer, ForeignKey("user_info.user_id"), nullable=False)
-    share_content = Column(String(255), nullable=False)
+    skill_content = Column(String(255), nullable=False)
     skill_likes = Column(Integer, default=0, nullable=False)
     skill_type = Column(String(50))
     skill_date = Column(DateTime, nullable=False)
