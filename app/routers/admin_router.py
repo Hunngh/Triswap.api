@@ -42,10 +42,10 @@ async def admin_get_users_route(response: Response, db: Session = Depends(get_db
 
 
 # 管理员查询单个用户信息
-@router.get("/api/admin/users/{user_id}")
-async def admin_get_user_route(user_id: int, db: Session = Depends(get_db)):
+@router.get("/api/admin/users/{account}")
+async def admin_get_user_route(account: int, db: Session = Depends(get_db)):
     """管理员查询单个用户信息"""
-    user=get_user_info(user_id, db)
+    user=get_user_info(account, db)
     if user is not None:
         return {"message": "User information", "user": user}
     else:
@@ -53,15 +53,15 @@ async def admin_get_user_route(user_id: int, db: Session = Depends(get_db)):
 
 
 # 管理员修改用户状态
-@router.put("/api/admin/users/{user_id}")
-async def admin_modify_user_status_route(user_id: int, status: str, db: Session = Depends(get_db)):
+@router.put("/api/admin/users/{account}")
+async def admin_modify_user_status_route(account: str, status: str, db: Session = Depends(get_db)):
     """管理员修改用户状态"""
-    modify_user_status(user_id, status, db)
+    modify_user_status(account, status, db)
     return {"message": "User status modified successfully"}
 
 # 管理员删除用户信息
-@router.delete("/api/admin/users/{user_id}")
-async def admin_delete_user_route(user_id: int, db: Session = Depends(get_db)):
+@router.delete("/api/admin/users/{account}")
+async def admin_delete_user_route(account: str, db: Session = Depends(get_db)):
     """管理员删除用户信息"""
-    delete_user_info(user_id, db)
+    delete_user_info(account, db)
     return {"message": "User deleted successfully"}
