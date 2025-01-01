@@ -13,9 +13,11 @@
     10.用户收藏帖子
     11.用户收藏评论
     12.用户获取个人信息
+    13.用户通过帖子确定和谁交换
 '''
 
-import datetime
+
+from datetime import datetime
 import json
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -29,6 +31,7 @@ from app import models
 from app.database import  crud
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from app.models.user_skill_info import UserSkillInfo
 
 #删除用户
 
@@ -348,3 +351,80 @@ class CommentService:
         self.db.commit()
         self.db.refresh(new_comment)
         return new_comment
+
+
+
+
+#用户通过帖子确定和谁交换
+#需要获得帖子的id，以及对方的id，然后判断是否已经交换过，如果没有交换过，则创建新的交换记录
+def create_exchange(db: Session, user_id: int, skill_id: int, opposite_id: int):
+    # 检查是否已经交换过
+    is_exchange = db.query(UserSkillInfo.is_finished).filter(
+        UserSkillInfo.is_finished == 1, 
+        UserSkillInfo.user_id == user_id, 
+        UserSkillInfo.skill_id == skill_id, 
+        UserSkillInfo.opposite_id == opposite_id
+    ).first()
+    if is_exchange:
+        raise HTTPException(status_code=400, detail="have already exchanged with this user")
+    # 创建交换记录
+    new_exchange = UserSkillInfo(
+        user_id=user_id,
+        skill_id=skill_id,
+        opposite_id=opposite_id,
+        is_finished=1,
+        exchange_date=datetime.now()
+    )
+    db.add(new_exchange)
+    db.commit()
+    db.refresh(new_exchange)
+    return new_exchange
+
+
+#用户可以和其他用户发送消息
+class MessageService:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def create_message(self, user_id: int, opposite_id: int, content: str):
+        """创建私信"""
+        new_message = models.ChatInfo(
+            user_id=user_id,
+            opposite_id=opposite_id,
+            chat_content=content,
+            chat_date=datetime.now(),
+            is_read=0
+        )
+        self.db.add(new_message)
+        self.db.commit()
+        self.db.refresh(new_message)
+        return new_message
+
+    def get_user_messages(self, user_id: int, skip: int = 0, limit: int = 10):
+        """获取用户的私信列表"""
+        return self.db.query(models.ChatInfo)\
+            .filter(models.ChatInfo.user_id == user_id)\
+            .order_by(models.ChatInfo.chat_date.desc())\
+            .offset(skip)\
+            .limit(limit)\
+            .all()
+
+    def get_unread_message_count(self, user_id: int):
+        """获取未读私信数量"""
+        return self.db.query(models.ChatInfo)\
+            .filter(models.ChatInfo.user_id == user_id, models.ChatInfo.is_read == 0)\
+            .count()
+
+    def read_message(self, user_id: int, message_id: int):
+        """标记私信为已读"""
+        message = self.db.query(models.ChatInfo).filter(models.ChatInfo.chat_id == message_id).first()
+        if not message:
+            raise HTTPException(status_code=404, detail="Message not found")
+        if message.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+        message.is_read = 1
+        self.db.commit()
+        return message
+    
+
+

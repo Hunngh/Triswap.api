@@ -27,11 +27,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import crud
 
 from app.database.database import get_db
+<<<<<<< HEAD
 from app.models.skill_info import SkillInfo
 from app.services.user_service import FollowService, UserService, SkillService, LikeService, \
     CommentService, ShareService
+=======
+from app.services.user_service import FollowService, UserService, SkillService, LikeService, FavoriteService, \
+    CommentService, ShareService,MessageService
+>>>>>>> 22ba6b1110bda9725e2d3577878fca82b2ac5042
 from app.models.user_info import UserInfo
-from app.services.user_service import register_user, login_user
+from app.services.user_service import register_user, login_user,create_exchange
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -326,7 +331,118 @@ def like_skill(skill_id: int, db: Session = Depends(get_db)):
     return like_service.like_skill(user_id, skill_id)
 
 
+# 确定交换关系
+class ExchangeRequest(BaseModel):
+    skill_id: int
+    opposite_id: int  # 对方用户ID
+    user_id: int  # 用户 ID
+
+@router.post("/api/skills/{skill_id}/exchange")
+def create_exchange(exchange_request: ExchangeRequest, db: Session = Depends(get_db)):
+    """
+    创建交换请求
+    - skill_id: 相关技能的ID
+    - opposite_id: 对方用户的ID
+    """
+    # 提取请求数据
+    skill_id = exchange_request.skill_id
+    opposite_id = exchange_request.opposite_id
+
+    # 调用服务层的 create_exchange 函数
+    exchange_record = create_exchange(db, exchange_request.user_id, skill_id, opposite_id)
+    
+    return {
+        "message": "交换请求已创建",
+        "user_id": exchange_record.user_id,
+        "opposite_id": opposite_id,
+        "skill_id": skill_id,
+        "is_finished": exchange_record.is_finished,  # 状态
+        "date": exchange_record.date  # 时间戳
+    }
+
+# routers/user_router.py
+
+class MesssageRequest(BaseModel):
+    content: str
+    receiver_id: int
+    user_id: int  # 这里可以省略，直接从 JWT 或上下文获取
+
+@router.post("/api/send_message")
+def send_message(message_request: MesssageRequest, db: Session = Depends(get_db)):
+    """发送消息"""
+    message_service = MessageService(db)
+
+    # 使用请求体中的数据发送消息
+    new_message = message_service.create_message(
+        user_id=message_request.user_id,  # 发件人ID
+        opposite_id=message_request.receiver_id,  # 收件人ID
+        content=message_request.content  # 消息内容
+    )
+
+    return {
+        "message": "消息发送成功",
+        "message_id": new_message.chat_id,  
+        "content": new_message.chat_content,
+        "chat_date": new_message.chat_date,
+        "is_read": new_message.is_read
+    }
 
 
+# 确定交换关系
+class ExchangeRequest(BaseModel):
+    skill_id: int
+    opposite_id: int  # 对方用户ID
+    user_id: int  # 用户 ID
 
 
+@router.post("/api/skills/{skill_id}/exchange")
+def create_exchange(exchange_request: ExchangeRequest, db: Session = Depends(get_db)):
+    """
+    创建交换请求
+    - skill_id: 相关技能的ID
+    - opposite_id: 对方用户的ID
+    """
+    # 提取请求数据
+    skill_id = exchange_request.skill_id
+    opposite_id = exchange_request.opposite_id
+
+    # 调用服务层的 create_exchange 函数
+    exchange_record = create_exchange(db, exchange_request.user_id, skill_id, opposite_id)
+
+    return {
+        "message": "交换请求已创建",
+        "user_id": exchange_record.user_id,
+        "opposite_id": opposite_id,
+        "skill_id": skill_id,
+        "is_finished": exchange_record.is_finished,  # 状态
+        "date": exchange_record.date  # 时间戳
+    }
+
+
+# routers/user_router.py
+
+class MesssageRequest(BaseModel):
+    content: str
+    receiver_id: int
+    user_id: int  # 这里可以省略，直接从 JWT 或上下文获取
+
+
+@router.post("/api/send_message")
+def send_message(message_request: MesssageRequest, db: Session = Depends(get_db)):
+    """发送消息"""
+    message_service = MessageService(db)
+
+    # 使用请求体中的数据发送消息
+    new_message = message_service.create_message(
+        user_id=message_request.user_id,  # 发件人ID
+        opposite_id=message_request.receiver_id,  # 收件人ID
+        content=message_request.content  # 消息内容
+    )
+
+    return {
+        "message": "消息发送成功",
+        "message_id": new_message.chat_id,
+        "content": new_message.chat_content,
+        "chat_date": new_message.chat_date,
+        "is_read": new_message.is_read
+    }
