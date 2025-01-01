@@ -8,7 +8,6 @@ class SkillInfo(Base):
     user_id = Column(Integer, ForeignKey("user_info.user_id"), nullable=False)
     skill_content = Column(String(255), nullable=False)
     skill_likes = Column(Integer, default=0, nullable=False)
-    skill_type = Column(String(50))
     skill_date = Column(DateTime, nullable=False)
     skill_comment_count = Column(Integer, default=0, nullable=False)
 

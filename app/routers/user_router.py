@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import crud
 
 from app.database.database import get_db
+from app.models.skill_info import SkillInfo
 from app.services.user_service import FollowService, UserService, SkillService, LikeService, \
     CommentService, ShareService
 from app.models.user_info import UserInfo
@@ -132,6 +133,47 @@ def change_password(user_id: int, password_update_request: PasswordUpdateRequest
 
     return updated_user
 
+#用户主页显示
+@router.get("/api/skills/{user_id}", summary="获取用户发布的所有帖子")
+async def get_user_posts(user_id: int, db: Session = Depends(get_db)):
+    """
+    根据 user_id 查询该用户发布的所有帖子
+    """
+    # 检查用户是否存在
+    user = db.query(UserInfo).filter(UserInfo.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    # 查询该用户的所有帖子
+    posts = (
+        db.query(SkillInfo)
+        .filter(SkillInfo.user_id == user_id)
+        .order_by(SkillInfo.skill_date.desc())
+        .all()
+    )
+
+    # 返回帖子信息
+    return {
+        "user": {
+            "user_id": user.user_id,
+            "account": user.account,
+            "avator": user.avator,
+            "email": user.email,
+            "profile": user.profile,
+        },
+        "posts": [
+            {
+                "skill_id": post.skill_id,
+                "skill_content": post.skill_content,
+                "skill_likes": post.skill_likes,
+                "skill_type": post.skill_type,
+                "skill_date": post.skill_date,
+                "skill_comment_count": post.skill_comment_count,
+            }
+            for post in posts
+        ],
+    }
+
 #用户查找其他用户信息
 class UserResponse(BaseModel):
     user_id: int
@@ -185,40 +227,25 @@ def follow_user(follow_request: FollowRequest, db: Session = Depends(get_db)):
     return follow_info
 
 #用户发布技能交换
-class SkillPostRequest(BaseModel):
+class SkillPost(BaseModel):
     user_id: int
-    skill_content: dict
-    skill_type: str
-
-class SkillResponse(BaseModel):
-    skill_id: int
-    user_id: int
-    skill_content: dict  # JSON 对象
-    skill_type: str
-    skill_likes: int
-    skill_comment_count: int
+    skill_content: str
     skill_date: datetime
 
-    class Config:
-        from_attributes = True
-
-    @classmethod
-    def from_orm(cls, obj):
-        # 将 content 从字符串解析为 JSON
-        data = super().from_orm(obj)
-        data.content = json.loads(obj.content)
-        return data
-
-@router.get("/api/skills", response_model=List[SkillResponse])
-def get_skills(db: Session = Depends(get_db)):
-    skill_service = SkillService(db)
-    return skill_service.get_all_skills()
-
-@router.post("/api/skills", response_model=SkillResponse)
-def post_skill(skill_request: SkillPostRequest, db: Session = Depends(get_db)):
-    user_id = skill_request.user_id
-    skill_service = SkillService(db)
-    return skill_service.create_skill(user_id, skill_request.dict())
+@router.post("/api/skills")
+async def create_skill_post(skill: dict, db: Session = Depends(get_db)):
+    try:
+        new_skill = SkillInfo(
+            user_id=skill["user_id"],
+            skill_content=skill["skill_content"],
+            skill_date=datetime.now(),
+        )
+        db.add(new_skill)
+        db.commit()
+        db.refresh(new_skill)
+        return {"message": "Skill post created successfully", "data": new_skill}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 
