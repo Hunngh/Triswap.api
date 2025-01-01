@@ -19,7 +19,11 @@ import datetime
 import json
 from typing import Optional
 from sqlalchemy.orm import Session
+
+from app.models.share_info import ShareInfo
+from app.models.share_like import ShareLike
 from app.models.skill_info import SkillInfo
+from app.models.skill_like import SkillLike
 from app.models.user_info import UserInfo
 from app import models
 from app.database import  crud
@@ -164,42 +168,75 @@ class SkillService:
         self.db = db
 
     def create_skill(self, user_id: int, skill_data: dict):
-        # 将 content 转换为 JSON 字符串
-        skill = SkillInfo(
-            user_id=user_id,
-            content=json.dumps(skill_data["content"]),  # 转为 JSON 字符串存储
-            skill_type=skill_data["skill_type"]
-        )
-        self.db.add(skill)
+        # 将 JSON 对象序列化为字符串
+        skill_data["content"] = json.dumps(skill_data["content"])
+        new_skill = SkillInfo(user_id=user_id, **skill_data)
+        self.db.add(new_skill)
         self.db.commit()
-        self.db.refresh(skill)
-        return skill
+        self.db.refresh(new_skill)
+        # 返回新创建的技能交换帖
+        new_skill.content = json.loads(new_skill.content)  # 返回时反序列化为 JSON
+        return new_skill
+
+    def get_all_skills(self):
+        # 查询技能交换帖子并排序
+        skills = self.db.query(SkillInfo).order_by(SkillInfo.skill_date.desc()).all()
+        for skill in skills:
+            try:
+                skill.skill_content = json.loads(skill.skill_content)
+            except json.JSONDecodeError:
+                raise ValueError(f"Content字段格式错误: {skill.skill_content}")
+        return skills
+
 
 class ShareService:
     def __init__(self, db: Session):
         self.db = db
 
+    def get_all_shares(self):
+        """获取所有经验分享帖子"""
+        shares = self.db.query(ShareInfo).all()
+        for share in shares:
+            # 将 share_content 转换为字典
+            try:
+                share.share_content = json.loads(share.share_content)
+            except json.JSONDecodeError:
+                raise ValueError("分享帖内容 JSON 格式错误")
+        return shares
+
     def create_share(self, user_id: int, share_data: dict):
-        """创建分享帖子"""
-        new_share = models.ShareInfo(
+        # 将 JSON 数据存储为字符串
+        share_content = json.dumps(share_data['share_content'])
+        share_date = share_data['share_date']
+
+        new_share = ShareInfo(
             user_id=user_id,
-            share_content=share_data["content"],
-            share_date=datetime.now(),
+            share_content=share_content,
+            share_date=share_date,
             share_likes=0,
-            share_comment_count=0
+            share_comment_count=0,
         )
         self.db.add(new_share)
         self.db.commit()
         self.db.refresh(new_share)
+
+        # 返回新增的分享帖
         return new_share
 
-    def get_user_shares(self, user_id: int, skip: int = 0, limit: int = 10):
-        """获取用户的分享帖子列表"""
-        return self.db.query(models.ShareInfo)\
-            .filter(models.ShareInfo.user_id == user_id)\
-            .offset(skip)\
-            .limit(limit)\
-            .all()
+    def get_all_shares(self):
+        """获取所有经验分享帖子并按发布时间排序"""
+        # 查询所有分享帖，按日期降序排列
+        shares = self.db.query(ShareInfo).order_by(ShareInfo.share_date.desc()).all()
+
+        # 将每个分享帖的内容从 JSON 格式的字符串解析为字典
+        for share in shares:
+            try:
+                share.share_content = json.loads(share.share_content)
+            except json.JSONDecodeError:
+                raise ValueError(f"Content字段格式错误: {share.share_content}")
+
+        return shares
+
 
 #用户点赞
 class LikeService:
@@ -209,12 +246,12 @@ class LikeService:
     def like_skill(self, user_id: int, skill_id: int):
         """技能帖子点赞/取消点赞"""
         # 检查是否已经点赞
-        existing_like = self.db.query(models.SkillLike).filter(
-            models.SkillLike.user_id == user_id,
-            models.SkillLike.skill_id == skill_id
+        existing_like = self.db.query(SkillLike).filter(
+            SkillLike.user_id == user_id,
+            SkillLike.skill_id == skill_id
         ).first()
 
-        skill = self.db.query(models.SkillInfo).filter(models.SkillInfo.skill_id == skill_id).first()
+        skill = self.db.query(SkillInfo).filter(SkillInfo.skill_id == skill_id).first()
         if not skill:
             raise HTTPException(status_code=404, detail="帖子不存在")
 
@@ -225,7 +262,7 @@ class LikeService:
             message = "取消点赞成功"
         else:
             # 添加点赞
-            new_like = models.SkillLike(
+            new_like = SkillLike(
                 user_id=user_id,
                 skill_id=skill_id,
                 like_date=datetime.now()
@@ -239,12 +276,12 @@ class LikeService:
 
     def like_share(self, user_id: int, share_id: int):
         """分享帖子点赞/取消点赞"""
-        existing_like = self.db.query(models.ShareLike).filter(
-            models.ShareLike.user_id == user_id,
-            models.ShareLike.share_id == share_id
+        existing_like = self.db.query(ShareLike).filter(
+            ShareLike.user_id == user_id,
+            ShareLike.share_id == share_id
         ).first()
 
-        share = self.db.query(models.ShareInfo).filter(models.ShareInfo.share_id == share_id).first()
+        share = self.db.query(ShareInfo).filter(ShareInfo.share_id == share_id).first()
         if not share:
             raise HTTPException(status_code=404, detail="帖子不存在")
 
@@ -255,7 +292,7 @@ class LikeService:
             message = "取消点赞成功"
         else:
             # 添加点赞
-            new_like = models.ShareLike(
+            new_like = ShareLike(
                 user_id=user_id,
                 share_id=share_id,
                 like_date=datetime.now()
@@ -267,43 +304,6 @@ class LikeService:
         self.db.commit()
         return {"message": message}
 
-#用户收藏
-class FavoriteService:
-    def __init__(self, db: Session):
-        self.db = db
-
-    def favorite_skill(self, user_id: int, skill_id: int):
-        """技能帖子收藏/取消收藏"""
-        existing_favorite = self.db.query(models.SkillFavorite).filter(
-            models.SkillFavorite.user_id == user_id,
-            models.SkillFavorite.skill_id == skill_id
-        ).first()
-
-        if existing_favorite:
-            # 取消收藏
-            self.db.delete(existing_favorite)
-            message = "取消收藏成功"
-        else:
-            # 添加收藏
-            new_favorite = models.SkillFavorite(
-                user_id=user_id,
-                skill_id=skill_id,
-                favorite_date=datetime.now()
-            )
-            self.db.add(new_favorite)
-            message = "收藏成功"
-
-        self.db.commit()
-        return {"message": message}
-
-    def get_user_favorites(self, user_id: int, skip: int = 0, limit: int = 10):
-        """获取用户的收藏列表"""
-        return self.db.query(models.SkillInfo)\
-            .join(models.SkillFavorite)\
-            .filter(models.SkillFavorite.user_id == user_id)\
-            .offset(skip)\
-            .limit(limit)\
-            .all()
 
 
 #用户发表评论，或者回复评论
