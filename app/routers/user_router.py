@@ -27,14 +27,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import crud
 
 from app.database.database import get_db
-<<<<<<< HEAD
 from app.models.skill_info import SkillInfo
-from app.services.user_service import FollowService, UserService, SkillService, LikeService, \
-    CommentService, ShareService
-=======
-from app.services.user_service import FollowService, UserService, SkillService, LikeService, FavoriteService, \
+from app.services.user_service import FollowService, UserService, SkillService, LikeService,  \
     CommentService, ShareService,MessageService
->>>>>>> 22ba6b1110bda9725e2d3577878fca82b2ac5042
 from app.models.user_info import UserInfo
 from app.services.user_service import register_user, login_user,create_exchange
 from pydantic import BaseModel
@@ -173,7 +168,6 @@ async def get_user_posts(user_id: int, db: Session = Depends(get_db)):
                 "skill_id": post.skill_id,
                 "skill_content": post.skill_content,
                 "skill_likes": post.skill_likes,
-                "skill_type": post.skill_type,
                 "skill_date": post.skill_date,
                 "skill_comment_count": post.skill_comment_count,
             }
