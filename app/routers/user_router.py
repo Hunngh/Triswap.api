@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import crud
 
 from app.database.database import get_db
+from app.models import ShareInfo
 from app.models.skill_info import SkillInfo
 from app.services.user_service import FollowService, UserService, SkillService, LikeService,  \
     CommentService, ShareService,MessageService
@@ -175,34 +176,6 @@ async def get_user_posts(user_id: int, db: Session = Depends(get_db)):
         ],
     }
 
-#用户查找其他用户信息
-class UserResponse(BaseModel):
-    user_id: int
-    account: str
-    avator: Optional[str]
-    gender: Optional[str]
-    birth: Optional[str]  # 更改为字符串类型以返回日期格式
-    school: Optional[str]
-    profile: Optional[str]
-    email: str
-    phone: Optional[str]
-    status: Optional[str]
-
-    class Config:
-        from_attributes = True
-
-
-@router.get("/api/users/{account}", response_model=UserResponse)
-def get_user_by_account(account: str, db: Session = Depends(get_db)):
-    db_user = crud.get_user_by_account(db, account=account)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="没有找到对应的用户")
-
-    # 将 birth 转换为字符串格式，以便返回 JSON
-    if db_user.birth:
-        db_user.birth = db_user.birth.strftime('%Y-%m-%d')  # 格式化日期为字符串
-
-    return db_user
 
 #用户关注其他用户
 class FollowRequest(BaseModel):
@@ -271,51 +244,97 @@ async def create_skill_post(skill: SkillPost, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+#首页帖子列表显示
+@router.get("/api/skill_posts")
+async def get_all_posts(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+    posts = (
+        db.query(SkillInfo)
+        .order_by(SkillInfo.skill_date.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    result = []
+    for post in posts:
+        skill_content = json.loads(post.skill_content)  # 假设 skill_content 是 JSON 格式
+        result.append({
+            "skill_id": post.skill_id,
+            "user_id": post.user_id,
+            "content": skill_content.get("content", ""),
+            "image": skill_content.get("images", [None])[0],  # 第一张图片
+            "skill_likes": post.skill_likes,
+            "skill_date": post.skill_date,
+            "skill_comment_count": post.skill_comment_count,
+        })
+    return {"posts": result}
 
-
-# 发布分享帖子
-class SharePostRequest(BaseModel):
+# 创建分享帖子
+class SharePost(BaseModel):
     user_id: int
-    share_content: dict  # JSON 格式的帖子内容
+    share_content: dict  # 处理包含文本和Base64图片的JSON
     share_date: datetime
 
-class ShareResponse(BaseModel):
-    share_id: int
-    user_id: int
-    share_content: dict  # JSON 格式的帖子内容
-    share_likes: int
-    share_comment_count: int
-    share_date: datetime
+@router.post("/api/shares")
+async def create_share_post(share: SharePost, db: Session = Depends(get_db)):
+    try:
+        # 保存图片到文件夹并获取URL
+        images = share.share_content.get("images", [])
+        saved_image_urls = []
 
-    class Config:
-        from_attributes = True
+        for idx, image_base64 in enumerate(images):
+            image_data = base64.b64decode(image_base64)
+            image_filename = f"user_{share.user_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{idx}.jpg"
+            image_path = os.path.join(UPLOAD_FOLDER, image_filename)
+            with open(image_path, "wb") as f:
+                f.write(image_data)
+            saved_image_urls.append(f"/{UPLOAD_FOLDER}/{image_filename}")
 
-@router.get("/api/shares", response_model=List[ShareResponse])
-def get_shares(db: Session = Depends(get_db)):
-    share_service = ShareService(db)
-    return share_service.get_all_shares()
+        # 更新 share_content 字段为文本和图片URL的组合
+        share_content = {
+            "content": share.share_content.get("content", ""),
+            "images": saved_image_urls
+        }
 
-@router.post("/api/shares", response_model=ShareResponse)
-def post_share(share_request: SharePostRequest, db: Session = Depends(get_db)):
-    user_id = share_request.user_id
-    share_service = ShareService(db)
-    return share_service.create_share(user_id, share_request.dict())
+        # 创建新的分享帖子
+        new_share = ShareInfo(
+            user_id=share.user_id,
+            share_content=json.dumps(share_content),  # 转换为 JSON 字符串保存
+            share_date=share.share_date
+        )
+        db.add(new_share)
+        db.commit()
+        db.refresh(new_share)
+
+        return {"message": "Share post created successfully", "data": new_share}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 分享帖子列表显示
+@router.get("/api/share_posts")
+async def get_all_share_posts(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+    posts = (
+        db.query(ShareInfo)
+        .order_by(ShareInfo.share_date.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    result = []
+    for post in posts:
+        share_content = json.loads(post.share_content)  # 假设 share_content 是 JSON 格式
+        result.append({
+            "share_id": post.share_id,
+            "user_id": post.user_id,
+            "content": share_content.get("content", ""),
+            "image": share_content.get("images", [None])[0],  # 第一张图片
+            "share_likes": post.share_likes,
+            "share_date": post.share_date,
+            "share_comment_count": post.share_comment_count,
+        })
+    return {"posts": result}
 
 # 发布评论
-class CommentRequest(BaseModel):
-    content: str
-    parent_id: Optional[int] = None
 
-@router.post("/api/skills/{skill_id}/comments")
-def comment_skill(skill_id: int, comment_request: CommentRequest, db: Session = Depends(get_db)):
-    user_id = 1  # 这里应该从token中获取当前用户ID
-    comment_service = CommentService(db)
-    return comment_service.create_skill_comment(
-        user_id,
-        skill_id,
-        comment_request.content,
-        comment_request.parent_id
-    )
 
 # 点赞技能交换帖子
 @router.post("/api/skills/{skill_id}/like")
