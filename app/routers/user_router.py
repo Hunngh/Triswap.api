@@ -18,7 +18,7 @@
 '''
 import json
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -187,16 +187,16 @@ def follow_user(follow_request: FollowRequest, db: Session = Depends(get_db)):
 #用户发布技能交换
 class SkillPostRequest(BaseModel):
     user_id: int
-    content: dict
+    skill_content: dict
     skill_type: str
 
 class SkillResponse(BaseModel):
     skill_id: int
     user_id: int
-    content: dict  # 返回 JSON 对象
+    skill_content: dict  # JSON 对象
     skill_type: str
-    likes: int
-    comment_count: int
+    skill_likes: int
+    skill_comment_count: int
     skill_date: datetime
 
     class Config:
@@ -209,11 +209,13 @@ class SkillResponse(BaseModel):
         data.content = json.loads(obj.content)
         return data
 
+@router.get("/api/skills", response_model=List[SkillResponse])
+def get_skills(db: Session = Depends(get_db)):
+    skill_service = SkillService(db)
+    return skill_service.get_all_skills()
+
 @router.post("/api/skills", response_model=SkillResponse)
-def post_skill(
-    skill_request: SkillPostRequest,
-    db: Session = Depends(get_db)
-):
+def post_skill(skill_request: SkillPostRequest, db: Session = Depends(get_db)):
     user_id = skill_request.user_id
     skill_service = SkillService(db)
     return skill_service.create_skill(user_id, skill_request.dict())
@@ -222,22 +224,29 @@ def post_skill(
 
 # 发布分享帖子
 class SharePostRequest(BaseModel):
-    content: str
+    user_id: int
+    share_content: dict  # JSON 格式的帖子内容
+    share_date: datetime
 
 class ShareResponse(BaseModel):
     share_id: int
     user_id: int
-    content: str
-    likes: int
-    comment_count: int
+    share_content: dict  # JSON 格式的帖子内容
+    share_likes: int
+    share_comment_count: int
     share_date: datetime
 
     class Config:
         from_attributes = True
 
+@router.get("/api/shares", response_model=List[ShareResponse])
+def get_shares(db: Session = Depends(get_db)):
+    share_service = ShareService(db)
+    return share_service.get_all_shares()
+
 @router.post("/api/shares", response_model=ShareResponse)
 def post_share(share_request: SharePostRequest, db: Session = Depends(get_db)):
-    user_id = 1  # 这里应该从token中获取当前用户ID
+    user_id = share_request.user_id
     share_service = ShareService(db)
     return share_service.create_share(user_id, share_request.dict())
 
@@ -257,31 +266,17 @@ def comment_skill(skill_id: int, comment_request: CommentRequest, db: Session = 
         comment_request.parent_id
     )
 
-# 点赞帖子
+# 点赞技能交换帖子
 @router.post("/api/skills/{skill_id}/like")
 def like_skill(skill_id: int, db: Session = Depends(get_db)):
     user_id = 1  # 这里应该从token中获取当前用户ID
     like_service = LikeService(db)
     return like_service.like_skill(user_id, skill_id)
 
-# 收藏帖子
-@router.post("/api/skills/{skill_id}/favorite")
-def favorite_skill(skill_id: int, db: Session = Depends(get_db)):
-    user_id = 1  # 这里应该从token中获取当前用户ID
-    favorite_service = FavoriteService(db)
-    return favorite_service.favorite_skill(user_id, skill_id)
 
-# 获取用户发布的技能帖子列表
-@router.get("/api/users/{user_id}/skills")
-def get_user_skills(user_id: int, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
-    skill_service = SkillService(db)
-    return skill_service.get_user_skills(user_id, skip, limit)
 
-# 获取用户的收藏列表
-@router.get("/api/users/{user_id}/favorites")
-def get_user_favorites(user_id: int, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
-    favorite_service = FavoriteService(db)
-    return favorite_service.get_user_favorites(user_id, skip, limit)
+
+
 
 
 # 确定交换关系
