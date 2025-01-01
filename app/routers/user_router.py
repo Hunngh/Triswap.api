@@ -16,7 +16,9 @@
     12.用户获取个人信息
 
 '''
+import base64
 import json
+import os
 from datetime import date, datetime
 from typing import Optional, List
 
@@ -227,22 +229,45 @@ def follow_user(follow_request: FollowRequest, db: Session = Depends(get_db)):
     return follow_info
 
 #用户发布技能交换
+UPLOAD_FOLDER = "uploaded_images"  # 定义图片上传文件夹
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # 如果文件夹不存在，则创建
+
 class SkillPost(BaseModel):
     user_id: int
-    skill_content: str
+    skill_content: dict  # 处理包含文本和Base64图片的JSON
     skill_date: datetime
 
 @router.post("/api/skills")
-async def create_skill_post(skill: dict, db: Session = Depends(get_db)):
+async def create_skill_post(skill: SkillPost, db: Session = Depends(get_db)):
     try:
+        # 保存图片到文件夹并获取URL
+        images = skill.skill_content.get("images", [])
+        saved_image_urls = []
+
+        for idx, image_base64 in enumerate(images):
+            image_data = base64.b64decode(image_base64)
+            image_filename = f"user_{skill.user_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{idx}.jpg"
+            image_path = os.path.join(UPLOAD_FOLDER, image_filename)
+            with open(image_path, "wb") as f:
+                f.write(image_data)
+            saved_image_urls.append(f"/{UPLOAD_FOLDER}/{image_filename}")
+
+        # 更新 skill_content 字段为文本和图片URL的组合
+        skill_content = {
+            "content": skill.skill_content.get("content", ""),
+            "images": saved_image_urls
+        }
+
+        # 创建新的技能帖子
         new_skill = SkillInfo(
-            user_id=skill["user_id"],
-            skill_content=skill["skill_content"],
-            skill_date=datetime.now(),
+            user_id=skill.user_id,
+            skill_content=json.dumps(skill_content),  # 转换为JSON字符串保存
+            skill_date=skill.skill_date
         )
         db.add(new_skill)
         db.commit()
         db.refresh(new_skill)
+
         return {"message": "Skill post created successfully", "data": new_skill}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
