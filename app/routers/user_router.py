@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import crud
 
 from app.database.database import get_db
-from app.models import ShareInfo, SkillLike
+from app.models import ShareInfo, SkillLike, UserSkillInfo, SkillComment
 from app.models.skill_info import SkillInfo
 from app.services.user_service import FollowService, UserService, SkillService, LikeService,  \
     CommentService, ShareService,MessageService
@@ -436,7 +436,7 @@ async def check_like_status(skill_id: int, user_id: int, db: Session = Depends(g
 #     return {"message": "取消点赞成功"}
 
 
-# 确定交换关系
+# 确定交换关系请求模型
 class ExchangeRequest(BaseModel):
     skill_id: int
     opposite_id: int  # 对方用户ID
@@ -449,20 +449,62 @@ def create_exchange(exchange_request: ExchangeRequest, db: Session = Depends(get
     - skill_id: 相关技能的ID
     - opposite_id: 对方用户的ID
     """
-    # 提取请求数据
     skill_id = exchange_request.skill_id
     opposite_id = exchange_request.opposite_id
+    user_id = exchange_request.user_id
 
-    # 调用服务层的 create_exchange 函数
-    exchange_record = create_exchange(db, exchange_request.user_id, skill_id, opposite_id)
-    
+    # 校验：确保发帖人和发起交换人不是同一个人
+    skill_info = db.query(SkillInfo).filter(SkillInfo.skill_id == skill_id).first()
+    if not skill_info:
+        raise HTTPException(status_code=404, detail="技能帖子不存在")
+
+    if skill_info.user_id == user_id:
+        raise HTTPException(status_code=400, detail="无法与自己确定技能交换关系")
+
+    # 检查是否已存在已确定的交换关系
+    existing_exchange = (
+        db.query(UserSkillInfo)
+        .filter(UserSkillInfo.skill_id == skill_id, UserSkillInfo.is_finished == 0)
+        .first()
+    )
+    if existing_exchange:
+        raise HTTPException(
+            status_code=400,
+            detail="帖子已经确定技能交换关系",
+        )
+
+    # 检查是否已存在相同的交换关系
+    user_existing_exchange = (
+        db.query(UserSkillInfo)
+        .filter(
+            UserSkillInfo.user_id == user_id,
+            UserSkillInfo.skill_id == skill_id,
+            UserSkillInfo.opposite_id == opposite_id,
+        )
+        .first()
+    )
+    if user_existing_exchange:
+        raise HTTPException(status_code=400, detail="你已与该用户存在交换关系")
+
+    # 创建新的交换关系
+    new_exchange = UserSkillInfo(
+        user_id=user_id,
+        opposite_id=opposite_id,
+        skill_id=skill_id,
+        is_finished=0,  # 初始状态为未完成
+        date=datetime.now(),
+    )
+    db.add(new_exchange)
+    db.commit()
+    db.refresh(new_exchange)
+
     return {
         "message": "交换请求已创建",
-        "user_id": exchange_record.user_id,
-        "opposite_id": opposite_id,
-        "skill_id": skill_id,
-        "is_finished": exchange_record.is_finished,  # 状态
-        "date": exchange_record.date  # 时间戳
+        "user_id": new_exchange.user_id,
+        "opposite_id": new_exchange.opposite_id,
+        "skill_id": new_exchange.skill_id,
+        "is_finished": new_exchange.is_finished,  # 状态
+        "date": new_exchange.date,  # 时间戳
     }
 
 # routers/user_router.py
@@ -522,6 +564,98 @@ def create_exchange(exchange_request: ExchangeRequest, db: Session = Depends(get
         "is_finished": exchange_record.is_finished,  # 状态
         "date": exchange_record.date  # 时间戳
     }
+
+#技能交换评论
+# 评论响应模型
+class SkillCommentResponse(BaseModel):
+    comment_id: int
+    user_id: int
+    account: str
+    avatar: str = None  # 用户头像
+    content: str
+    date: datetime
+
+#添加技能交换评论
+class CommentRequest(BaseModel):
+    user_id: int
+    skill_id: int
+    comment_content: str
+    parent_id: int = None  # 默认为空值
+
+# 添加评论接口
+@router.post("/api/skills/{skill_id}/comments")
+def add_comment(skill_id: int, comment_request: CommentRequest, db: Session = Depends(get_db)):
+    """
+    添加评论接口
+    """
+    # 检查帖子是否存在
+    skill_post = db.query(SkillInfo).filter(SkillInfo.skill_id == skill_id).first()
+    if not skill_post:
+        raise HTTPException(status_code=404, detail="帖子不存在")
+
+    # 创建评论记录
+    new_comment = SkillComment(
+        user_id=comment_request.user_id,
+        skill_id=skill_id,
+        comment_content=comment_request.comment_content,
+        parent_id=comment_request.parent_id,  # 默认为空值
+        comment_date=datetime.now()
+    )
+
+    db.add(new_comment)
+    db.commit()
+    db.refresh(new_comment)
+
+    return {
+        "message": "评论添加成功",
+        "comment_id": new_comment.comment_id,
+        "user_id": new_comment.user_id,
+        "content": new_comment.comment_content,
+        "date": new_comment.comment_date,
+    }
+
+# 评论响应模型
+class CommentResponse(BaseModel):
+    comment_id: int
+    user_id: int
+    account: str
+    avatar: str = None  # 用户头像
+    content: str
+    date: datetime
+
+# 获取评论列表接口
+@router.get("/api/skills/{skill_id}/comments", response_model=List[CommentResponse])
+def get_comments(skill_id: int, db: Session = Depends(get_db)):
+    """
+    获取帖子评论列表接口
+    """
+    # 检查帖子是否存在
+    skill_post = db.query(SkillInfo).filter(SkillInfo.skill_id == skill_id).first()
+    if not skill_post:
+        raise HTTPException(status_code=404, detail="帖子不存在")
+
+    # 获取评论列表
+    comments = (
+        db.query(SkillComment, UserInfo)
+        .join(UserInfo, SkillComment.user_id == UserInfo.user_id)
+        .filter(SkillComment.skill_id == skill_id)
+        .order_by(SkillComment.comment_date.asc())
+        .all()
+    )
+
+    # 格式化评论数据
+    result = []
+    for comment, user in comments:
+        result.append({
+            "comment_id": comment.comment_id,
+            "user_id": comment.user_id,
+            "account": user.account,
+            "avatar": user.avator,
+            "content": comment.comment_content,
+            "date": comment.comment_date,
+        })
+
+    return result
 
 
 # routers/user_router.py
