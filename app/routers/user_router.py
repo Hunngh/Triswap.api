@@ -224,7 +224,7 @@ async def create_skill_post(skill: SkillPost, db: Session = Depends(get_db)):
                 f.write(image_data)
 
             # 拼接完整URL
-            full_url = f"http://127.0.0.1:8000/{UPLOAD_FOLDER}/{image_filename}"  # 替换为你的服务器地址
+            full_url = f"http://120.46.200.190:5500/{UPLOAD_FOLDER}/{image_filename}"  # 替换为你的服务器地址
             saved_image_urls.append(full_url)
 
         # 更新 skill_content 字段为文本和图片URL的组合
@@ -309,7 +309,10 @@ async def create_share_post(share: SharePost, db: Session = Depends(get_db)):
             image_path = os.path.join(UPLOAD_FOLDER, image_filename)
             with open(image_path, "wb") as f:
                 f.write(image_data)
-            saved_image_urls.append(f"/{UPLOAD_FOLDER}/{image_filename}")
+
+            # 拼接完整URL
+            full_url = f"http://120.46.200.190:5500/{UPLOAD_FOLDER}/{image_filename}"  # 替换为你的服务器地址
+            saved_image_urls.append(full_url)
 
         # 更新 share_content 字段为文本和图片URL的组合
         share_content = {
@@ -317,11 +320,11 @@ async def create_share_post(share: SharePost, db: Session = Depends(get_db)):
             "images": saved_image_urls
         }
 
-        # 创建新的分享帖子
+        # 创建新的技能帖子
         new_share = ShareInfo(
             user_id=share.user_id,
-            share_content=json.dumps(share_content),  # 转换为 JSON 字符串保存
-            share_date=share.share_date
+            share_content=json.dumps(share_content),  # 转换为JSON字符串保存
+            share_date=share.skill_date
         )
         db.add(new_share)
         db.commit()
@@ -330,6 +333,7 @@ async def create_share_post(share: SharePost, db: Session = Depends(get_db)):
         return {"message": "Share post created successfully", "data": new_share}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # 分享帖子列表显示
 @router.get("/api/share_posts")
@@ -406,7 +410,7 @@ async def check_like_status(skill_id: int, user_id: int, db: Session = Depends(g
 #         raise HTTPException(status_code=400, detail="尚未点赞")
 #
 #     db.delete(existing_like)
-# 
+#
 #     # 更新 SkillInfo 的点赞数量
 #     skill = db.query(SkillInfo).filter(SkillInfo.skill_id == skill_id).first()
 #     if skill:
