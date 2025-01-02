@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import crud
 
 from app.database.database import get_db
-from app.models import ShareInfo, SkillLike, UserSkillInfo, SkillComment
+from app.models import ShareInfo, SkillLike, UserSkillInfo, SkillComment, ShareComment
 from app.models.skill_info import SkillInfo
 from app.services.user_service import FollowService, UserService, SkillService, LikeService,  \
     CommentService, ShareService,MessageService
@@ -306,77 +306,6 @@ async def get_post_detail(skill_id: int, db: Session = Depends(get_db)):
         "skill_comment_count": post.skill_comment_count,
     }
 
-# 创建分享帖子
-class SharePost(BaseModel):
-    user_id: int
-    share_content: dict  # 处理包含文本和Base64图片的JSON
-    share_date: datetime
-
-@router.post("/api/shares")
-async def create_share_post(share: SharePost, db: Session = Depends(get_db)):
-    try:
-        # 保存图片到文件夹并获取URL
-        images = share.share_content.get("images", [])
-        saved_image_urls = []
-
-        for idx, image_base64 in enumerate(images):
-            image_data = base64.b64decode(image_base64)
-            image_filename = f"user_{share.user_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{idx}.jpg"
-            image_path = os.path.join(UPLOAD_FOLDER, image_filename)
-            with open(image_path, "wb") as f:
-                f.write(image_data)
-
-            # 拼接完整URL
-            full_url = f"http://120.46.200.190:5500/{UPLOAD_FOLDER}/{image_filename}"  # 替换为你的服务器地址
-            saved_image_urls.append(full_url)
-
-        # 更新 share_content 字段为文本和图片URL的组合
-        share_content = {
-            "content": share.share_content.get("content", ""),
-            "images": saved_image_urls
-        }
-
-        # 创建新的技能帖子
-        new_share = ShareInfo(
-            user_id=share.user_id,
-            share_content=json.dumps(share_content),  # 转换为JSON字符串保存
-            share_date=share.skill_date
-        )
-        db.add(new_share)
-        db.commit()
-        db.refresh(new_share)
-
-        return {"message": "Share post created successfully", "data": new_share}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# 分享帖子列表显示
-@router.get("/api/share_posts")
-async def get_all_share_posts(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
-    posts = (
-        db.query(ShareInfo)
-        .order_by(ShareInfo.share_date.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
-    result = []
-    for post in posts:
-        share_content = json.loads(post.share_content)  # 假设 share_content 是 JSON 格式
-        result.append({
-            "share_id": post.share_id,
-            "user_id": post.user_id,
-            "content": share_content.get("content", ""),
-            "image": share_content.get("images", [None])[0],  # 第一张图片
-            "share_likes": post.share_likes,
-            "share_date": post.share_date,
-            "share_comment_count": post.share_comment_count,
-        })
-    return {"posts": result}
-
-# 发布评论
-
 
 # 点赞技能交换帖子
 #查询是否点赞
@@ -603,6 +532,9 @@ def add_comment(skill_id: int, comment_request: CommentRequest, db: Session = De
     )
 
     db.add(new_comment)
+
+    # 更新 skill_comment_count 字段
+    skill_post.skill_comment_count += 1  # 评论数加 1
     db.commit()
     db.refresh(new_comment)
 
@@ -657,31 +589,181 @@ def get_comments(skill_id: int, db: Session = Depends(get_db)):
 
     return result
 
+# 创建分享帖子
+class SharePost(BaseModel):
+    user_id: int
+    share_content: dict  # 处理包含文本和Base64图片的JSON
+    share_date: datetime
 
-# routers/user_router.py
+@router.post("/api/shares")
+async def create_share_post(share: SharePost, db: Session = Depends(get_db)):
+    try:
+        # 保存图片到文件夹并获取URL
+        images = share.share_content.get("images", [])
+        saved_image_urls = []
 
-class MesssageRequest(BaseModel):
-    content: str
-    receiver_id: int
-    user_id: int  # 这里可以省略，直接从 JWT 或上下文获取
+        for idx, image_base64 in enumerate(images):
+            image_data = base64.b64decode(image_base64)
+            image_filename = f"user_{share.user_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{idx}.jpg"
+            image_path = os.path.join(UPLOAD_FOLDER, image_filename)
+            with open(image_path, "wb") as f:
+                f.write(image_data)
+
+            # 拼接完整URL
+            full_url = f"http://120.46.200.190:5500/{UPLOAD_FOLDER}/{image_filename}"  # 替换为你的服务器地址
+            saved_image_urls.append(full_url)
+
+        # 更新 share_content 字段为文本和图片URL的组合
+        share_content = {
+            "content": share.share_content.get("content", ""),
+            "images": saved_image_urls
+        }
+
+        # 创建新的技能帖子
+        new_share = ShareInfo(
+            user_id=share.user_id,
+            share_content=json.dumps(share_content),  # 转换为JSON字符串保存
+            share_date=share.skill_date
+        )
+        db.add(new_share)
+        db.commit()
+        db.refresh(new_share)
+
+        return {"message": "Share post created successfully", "data": new_share}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/api/send_message")
-def send_message(message_request: MesssageRequest, db: Session = Depends(get_db)):
-    """发送消息"""
-    message_service = MessageService(db)
-
-    # 使用请求体中的数据发送消息
-    new_message = message_service.create_message(
-        user_id=message_request.user_id,  # 发件人ID
-        opposite_id=message_request.receiver_id,  # 收件人ID
-        content=message_request.content  # 消息内容
+# 分享帖子列表显示
+@router.get("/api/share_posts")
+async def get_all_share_posts(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+    posts = (
+        db.query(ShareInfo)
+        .order_by(ShareInfo.share_date.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
     )
+    result = []
+    for post in posts:
+        share_content = json.loads(post.share_content)  # 假设 share_content 是 JSON 格式
+        result.append({
+            "share_id": post.share_id,
+            "user_id": post.user_id,
+            "content": share_content.get("content", ""),
+            "image": share_content.get("images", [None])[0],  # 第一张图片
+            "share_likes": post.share_likes,
+            "share_date": post.share_date,
+            "share_comment_count": post.share_comment_count,
+        })
+    return {"posts": result}
+
+# 获取分享帖详细信息
+@router.get("/api/share_posts/{share_id}")
+async def get_share_post_detail(share_id: int, db: Session = Depends(get_db)):
+    """
+    获取分享帖详细信息
+    """
+    # 查询帖子是否存在
+    post = db.query(ShareInfo).filter(ShareInfo.share_id == share_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="帖子未找到")
+
+    # 假设 share_content 是 JSON 格式
+    share_content = json.loads(post.share_content)
 
     return {
-        "message": "消息发送成功",
-        "message_id": new_message.chat_id,
-        "content": new_message.chat_content,
-        "chat_date": new_message.chat_date,
-        "is_read": new_message.is_read
+        "share_id": post.share_id,
+        "user_id": post.user_id,
+        "content": share_content.get("content", ""),
+        "images": share_content.get("images", []),
+        "share_likes": post.share_likes,
+        "share_date": post.share_date,
+        "share_comment_count": post.share_comment_count,
     }
+
+
+# 经验分享评论响应模型
+class ShareCommentResponse(BaseModel):
+    comment_id: int
+    user_id: int
+    account: str
+    avatar: str = None  # 用户头像
+    content: str
+    date: datetime
+
+# 添加经验分享评论请求模型
+class ShareCommentRequest(BaseModel):
+    user_id: int
+    share_id: int
+    comment_content: str
+    parent_id: int = None  # 默认为空值
+
+# 添加评论接口
+@router.post("/api/shares/{share_id}/comments")
+def add_share_comment(share_id: int, comment_request: ShareCommentRequest, db: Session = Depends(get_db)):
+    """
+    添加经验分享评论接口
+    """
+    # 检查帖子是否存在
+    share_post = db.query(ShareInfo).filter(ShareInfo.share_id == share_id).first()
+    if not share_post:
+        raise HTTPException(status_code=404, detail="帖子不存在")
+
+    # 创建评论记录
+    new_comment = ShareComment(
+        user_id=comment_request.user_id,
+        share_id=share_id,
+        comment_content=comment_request.comment_content,
+        parent_id=comment_request.parent_id,  # 默认为空值
+        comment_date=datetime.now()
+    )
+
+    db.add(new_comment)
+
+    # 更新 share_comment_count 字段
+    share_post.share_comment_count += 1  # 评论数加 1
+    db.commit()
+    db.refresh(new_comment)
+
+    return {
+        "message": "评论添加成功",
+        "comment_id": new_comment.comment_id,
+        "user_id": new_comment.user_id,
+        "content": new_comment.comment_content,
+        "date": new_comment.comment_date,
+    }
+
+# 获取经验分享评论列表接口
+@router.get("/api/shares/{share_id}/comments", response_model=List[ShareCommentResponse])
+def get_share_comments(share_id: int, db: Session = Depends(get_db)):
+    """
+    获取经验分享帖子评论列表接口
+    """
+    # 检查帖子是否存在
+    share_post = db.query(ShareInfo).filter(ShareInfo.share_id == share_id).first()
+    if not share_post:
+        raise HTTPException(status_code=404, detail="帖子不存在")
+
+    # 获取评论列表
+    comments = (
+        db.query(ShareComment, UserInfo)
+        .join(UserInfo, ShareComment.user_id == UserInfo.user_id)
+        .filter(ShareComment.share_id == share_id)
+        .order_by(ShareComment.comment_date.asc())
+        .all()
+    )
+
+    # 格式化评论数据
+    result = []
+    for comment, user in comments:
+        result.append({
+            "comment_id": comment.comment_id,
+            "user_id": comment.user_id,
+            "account": user.account,
+            "avatar": user.avator,
+            "content": comment.comment_content,
+            "date": comment.comment_date,
+        })
+
+    return result
