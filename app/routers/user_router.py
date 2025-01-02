@@ -22,7 +22,7 @@ import os
 from datetime import date, datetime
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import crud
 
@@ -101,22 +101,30 @@ def get_user_info(user_id: int, db: Session = Depends(get_db)):
     db_user = user_service.get_user_by_id(user_id)  # 调用 service 层方法
     return db_user
 
-UPLOAD_FOLDER = "uploaded_images/avatars"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+UPLOAD_AVATARS_FOLDER = "uploaded_images/avatars"
+os.makedirs(UPLOAD_AVATARS_FOLDER, exist_ok=True)
+
+class AvatarUpdateRequest(BaseModel):
+    avatar_base64: str
 
 @router.put("/api/users/{user_id}/avatar")
-async def upload_user_avatar(user_id: int, avatar_base64: str, db: Session = Depends(get_db)):
+async def upload_user_avatar(
+    user_id: int,
+    avatar_data: AvatarUpdateRequest,  # 使用 Pydantic 模型解析请求体
+    db: Session = Depends(get_db)
+):
     try:
+        avatar_base64 = avatar_data.avatar_base64
         # 解码 Base64 并保存头像
         image_data = base64.b64decode(avatar_base64)
         image_filename = f"user_{user_id}_avatar_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-        image_path = os.path.join(UPLOAD_FOLDER, image_filename)
+        image_path = os.path.join(UPLOAD_AVATARS_FOLDER, image_filename)
 
         with open(image_path, "wb") as f:
             f.write(image_data)
 
         # 拼接完整 URL
-        avatar_url = f"http://120.46.200.190:5500/{UPLOAD_FOLDER}/{image_filename}"
+        avatar_url = f"http://120.46.200.190:5500/{UPLOAD_AVATARS_FOLDER}/{image_filename}"
 
         # 更新数据库中的头像 URL
         user_service = UserService(db)
@@ -125,6 +133,7 @@ async def upload_user_avatar(user_id: int, avatar_base64: str, db: Session = Dep
         return {"message": "Avatar updated successfully", "avatar_url": avatar_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 #用户修改密码
 class PasswordUpdateRequest(BaseModel):
     old_password: str
@@ -551,7 +560,7 @@ class CommentResponse(BaseModel):
     comment_id: int
     user_id: int
     account: str
-    avatar: str = None  # 用户头像
+    avatar: Optional[str] = None
     content: str
     date: datetime
 
