@@ -107,6 +107,34 @@ os.makedirs(UPLOAD_AVATARS_FOLDER, exist_ok=True)
 class AvatarUpdateRequest(BaseModel):
     avatar_base64: str
 
+# 更新其他用户信息接口
+@router.put("/api/users/{user_id}/info")
+async def update_user_info(
+    user_id: int,
+    user_data: UserUpdateRequest,  # 使用 Pydantic 模型解析请求体
+    db: Session = Depends(get_db)
+):
+    try:
+        # 转换请求体为字典，并排除未设置的字段
+        update_data = user_data.dict(exclude_unset=True)
+
+        # 检查是否有更新内容
+        if not update_data:
+            raise HTTPException(status_code=400, detail="没有提供更新内容")
+
+        # 更新数据库中的用户信息
+        user_service = UserService(db)
+        updated_user = user_service.update_user_info(user_id, update_data)
+
+        if not updated_user:
+            raise HTTPException(status_code=404, detail="用户未找到")
+
+        return {"message": "User information updated successfully", "user": updated_user}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @router.put("/api/users/{user_id}/avatar")
 async def upload_user_avatar(
     user_id: int,
