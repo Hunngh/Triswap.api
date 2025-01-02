@@ -370,50 +370,50 @@ async def check_like_status(skill_id: int, user_id: int, db: Session = Depends(g
     return {"is_liked": is_liked is not None}
 
 #更改点赞状态
-@router.post("/api/skill_likes")
-async def like_skill(skill_like: SkillLike, db: Session = Depends(get_db)):
-    existing_like = (
-        db.query(SkillLike)
-        .filter(SkillLike.skill_id == skill_like.skill_id, SkillLike.user_id == skill_like.user_id)
-        .first()
-    )
-    if existing_like:
-        raise HTTPException(status_code=400, detail="已经点赞过")
-
-    new_like = SkillLike(
-        user_id=skill_like.user_id,
-        skill_id=skill_like.skill_id,
-        like_date=datetime.now(),
-    )
-    db.add(new_like)
-
-    # 更新 SkillInfo 的点赞数量
-    skill = db.query(SkillInfo).filter(SkillInfo.skill_id == skill_like.skill_id).first()
-    if skill:
-        skill.skill_likes += 1
-
-    db.commit()
-    return {"message": "点赞成功"}
-
-@router.delete("/api/skill_likes")
-async def unlike_skill(skill_id: int, user_id: int, db: Session = Depends(get_db)):
-    existing_like = (
-        db.query(SkillLike)
-        .filter(SkillLike.skill_id == skill_id, SkillLike.user_id == user_id)
-        .first()
-    )
-    if not existing_like:
-        raise HTTPException(status_code=400, detail="尚未点赞")
-
-    db.delete(existing_like)
-
-    # 更新 SkillInfo 的点赞数量
-    skill = db.query(SkillInfo).filter(SkillInfo.skill_id == skill_id).first()
-    if skill:
-        skill.skill_likes -= 1
-
-    db.commit()
-    return {"message": "取消点赞成功"}
+# @router.post("/api/skill_likes")
+# async def like_skill(skill_like: SkillLike, db: Session = Depends(get_db)):
+#     existing_like = (
+#         db.query(SkillLike)
+#         .filter(SkillLike.skill_id == skill_like.skill_id, SkillLike.user_id == skill_like.user_id)
+#         .first()
+#     )
+#     if existing_like:
+#         raise HTTPException(status_code=400, detail="已经点赞过")
+#
+#     new_like = SkillLike(
+#         user_id=skill_like.user_id,
+#         skill_id=skill_like.skill_id,
+#         like_date=datetime.now(),
+#     )
+#     db.add(new_like)
+#
+#     # 更新 SkillInfo 的点赞数量
+#     skill = db.query(SkillInfo).filter(SkillInfo.skill_id == skill_like.skill_id).first()
+#     if skill:
+#         skill.skill_likes += 1
+#
+#     db.commit()
+#     return {"message": "点赞成功"}
+#
+# @router.delete("/api/skill_likes")
+# async def unlike_skill(skill_id: int, user_id: int, db: Session = Depends(get_db)):
+#     existing_like = (
+#         db.query(SkillLike)
+#         .filter(SkillLike.skill_id == skill_id, SkillLike.user_id == user_id)
+#         .first()
+#     )
+#     if not existing_like:
+#         raise HTTPException(status_code=400, detail="尚未点赞")
+#
+#     db.delete(existing_like)
+# 
+#     # 更新 SkillInfo 的点赞数量
+#     skill = db.query(SkillInfo).filter(SkillInfo.skill_id == skill_id).first()
+#     if skill:
+#         skill.skill_likes -= 1
+#
+#     db.commit()
+#     return {"message": "取消点赞成功"}
 
 
 # 确定交换关系
