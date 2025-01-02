@@ -628,11 +628,11 @@ async def create_share_post(share: SharePost, db: Session = Depends(get_db)):
             "images": saved_image_urls
         }
 
-        # 创建新的技能帖子
+        # 创建新的经验分享帖子
         new_share = ShareInfo(
             user_id=share.user_id,
             share_content=json.dumps(share_content),  # 转换为JSON字符串保存
-            share_date=share.skill_date
+            share_date=share.share_date  # 确保字段名正确
         )
         db.add(new_share)
         db.commit()
@@ -640,8 +640,8 @@ async def create_share_post(share: SharePost, db: Session = Depends(get_db)):
 
         return {"message": "Share post created successfully", "data": new_share}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+        print(f"Error creating share post: {e}")  # 打印具体错误
+        raise HTTPException(status_code=500, detail="Error creating share post.")
 
 # 分享帖子列表显示
 @router.get("/api/share_posts")
