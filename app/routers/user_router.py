@@ -19,8 +19,8 @@
 import base64
 import json
 import os
+import random
 from datetime import date, datetime
-from random import random
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Body
@@ -300,7 +300,6 @@ async def create_skill_post(skill: SkillPost, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # 首页帖子列表显示
 @router.get("/api/skill_posts")
 async def get_all_posts(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
@@ -311,8 +310,6 @@ async def get_all_posts(skip: int = 0, limit: int = 10, db: Session = Depends(ge
         .limit(limit)
         .all()
     )
-
-    # 将查询结果转换为列表
     result = []
     for post in posts:
         skill_content = json.loads(post.skill_content)  # 假设 skill_content 是 JSON 格式
@@ -326,7 +323,7 @@ async def get_all_posts(skip: int = 0, limit: int = 10, db: Session = Depends(ge
             "skill_comment_count": post.skill_comment_count,
         })
 
-    # 随机打乱结果
+    # 随机打乱帖子顺序
     random.shuffle(result)
 
     return {"posts": result}
