@@ -66,7 +66,22 @@ class RegisterRequest(BaseModel):
 @router.post("/api/register")
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
     """用户注册路由"""
-    return register_user(request.email, request.password, db)
+    # 检查用户是否已经存在
+    existing_user = db.query(UserInfo).filter(UserInfo.email == request.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="用户已存在")
+
+    # 创建新用户
+    new_user = UserInfo(
+        email=request.email,
+        password=request.password,  # 建议对密码进行加密存储
+        created=datetime.utcnow()  # 自动生成注册时间
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {"message": "注册成功", "user_id": new_user.user_id}
 
 #用户更改个人信息
 class UserUpdateRequest(BaseModel):
