@@ -509,7 +509,7 @@ class CommentRequest(BaseModel):
     user_id: int
     skill_id: int
     comment_content: str
-    parent_id: int = None  # 默认为空值
+    parent_id: Optional[int] = None
 
 # 添加评论接口
 @router.post("/api/skills/{skill_id}/comments")
@@ -697,7 +697,7 @@ class ShareCommentRequest(BaseModel):
     user_id: int
     share_id: int
     comment_content: str
-    parent_id: int = None  # 默认为空值
+    parent_id: Optional[int] = None
 
 # 添加评论接口
 @router.post("/api/shares/{share_id}/comments")
