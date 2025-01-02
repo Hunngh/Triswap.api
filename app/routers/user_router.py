@@ -101,14 +101,30 @@ def get_user_info(user_id: int, db: Session = Depends(get_db)):
     db_user = user_service.get_user_by_id(user_id)  # 调用 service 层方法
     return db_user
 
-@router.put("/api/users/{user_id}", response_model=UserResponse)
-def update_user_info(user_id: int, user_update_request: UserUpdateRequest, db: Session = Depends(get_db)):
-    user_service = UserService(db)
+UPLOAD_FOLDER = "uploaded_images/avatars"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-    # 将请求体转为字典格式传入 service 层
-    updated_user = user_service.update_user_info(user_id, user_update_request.dict(exclude_unset=True))
+@router.put("/api/users/{user_id}/avatar")
+async def upload_user_avatar(user_id: int, avatar_base64: str, db: Session = Depends(get_db)):
+    try:
+        # 解码 Base64 并保存头像
+        image_data = base64.b64decode(avatar_base64)
+        image_filename = f"user_{user_id}_avatar_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+        image_path = os.path.join(UPLOAD_FOLDER, image_filename)
 
-    return updated_user
+        with open(image_path, "wb") as f:
+            f.write(image_data)
+
+        # 拼接完整 URL
+        avatar_url = f"http://120.46.200.190:5500/{UPLOAD_FOLDER}/{image_filename}"
+
+        # 更新数据库中的头像 URL
+        user_service = UserService(db)
+        updated_user = user_service.update_user_info(user_id, {"avator": avatar_url})
+
+        return {"message": "Avatar updated successfully", "avatar_url": avatar_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 #用户修改密码
 class PasswordUpdateRequest(BaseModel):
     old_password: str
