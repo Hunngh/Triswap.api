@@ -48,6 +48,8 @@ class UserService:
             raise HTTPException(status_code=404, detail="User not found")
 
         # 更新用户信息
+        if user_update_request.get("account"):
+            db_user.account = user_update_request["account"]
         if user_update_request.get("avator"):
             db_user.avator = user_update_request["avator"]
         if user_update_request.get("gender"):

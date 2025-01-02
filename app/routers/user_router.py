@@ -69,6 +69,7 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
 
 #用户更改个人信息
 class UserUpdateRequest(BaseModel):
+    account: Optional[str] = None  # 用户名字段
     avator: Optional[str] = None  # 头像链接
     gender: Optional[str] = None  # 性别
     birth: Optional[date] = None  # 生日
@@ -111,7 +112,7 @@ class AvatarUpdateRequest(BaseModel):
 @router.put("/api/users/{user_id}/info")
 async def update_user_info(
     user_id: int,
-    user_data: UserUpdateRequest,  # 使用 Pydantic 模型解析请求体
+    user_data: UserUpdateRequest,  # 使用更新后的 Pydantic 模型
     db: Session = Depends(get_db)
 ):
     try:
@@ -132,8 +133,6 @@ async def update_user_info(
         return {"message": "User information updated successfully", "user": updated_user}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
 
 @router.put("/api/users/{user_id}/avatar")
 async def upload_user_avatar(
