@@ -84,7 +84,7 @@ class UserUpdateRequest(BaseModel):
 
 class UserResponse(BaseModel):
     user_id: int
-    account: str
+    account: Optional[str]
     avator: Optional[str]
     gender: Optional[str]
     birth: Optional[date]
