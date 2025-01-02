@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import crud
 
 from app.database.database import get_db
-from app.models import ShareInfo
+from app.models import ShareInfo, SkillLike
 from app.models.skill_info import SkillInfo
 from app.services.user_service import FollowService, UserService, SkillService, LikeService,  \
     CommentService, ShareService,MessageService
@@ -222,7 +222,10 @@ async def create_skill_post(skill: SkillPost, db: Session = Depends(get_db)):
             image_path = os.path.join(UPLOAD_FOLDER, image_filename)
             with open(image_path, "wb") as f:
                 f.write(image_data)
-            saved_image_urls.append(f"/{UPLOAD_FOLDER}/{image_filename}")
+
+            # 拼接完整URL
+            full_url = f"http://127.0.0.1:8000/{UPLOAD_FOLDER}/{image_filename}"  # 替换为你的服务器地址
+            saved_image_urls.append(full_url)
 
         # 更新 skill_content 字段为文本和图片URL的组合
         skill_content = {
@@ -267,6 +270,25 @@ async def get_all_posts(skip: int = 0, limit: int = 10, db: Session = Depends(ge
             "skill_comment_count": post.skill_comment_count,
         })
     return {"posts": result}
+
+#获取帖子详细信息
+@router.get("/api/skill_posts/{skill_id}")
+async def get_post_detail(skill_id: int, db: Session = Depends(get_db)):
+    post = db.query(SkillInfo).filter(SkillInfo.skill_id == skill_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="帖子未找到")
+
+    skill_content = json.loads(post.skill_content)  # 假设 skill_content 是 JSON 格式
+
+    return {
+        "skill_id": post.skill_id,
+        "user_id": post.user_id,
+        "content": skill_content.get("content", ""),
+        "images": skill_content.get("images", []),
+        "skill_likes": post.skill_likes,
+        "skill_date": post.skill_date,
+        "skill_comment_count": post.skill_comment_count,
+    }
 
 # 创建分享帖子
 class SharePost(BaseModel):
@@ -337,11 +359,61 @@ async def get_all_share_posts(skip: int = 0, limit: int = 10, db: Session = Depe
 
 
 # 点赞技能交换帖子
-@router.post("/api/skills/{skill_id}/like")
-def like_skill(skill_id: int, db: Session = Depends(get_db)):
-    user_id = 1  # 这里应该从token中获取当前用户ID
-    like_service = LikeService(db)
-    return like_service.like_skill(user_id, skill_id)
+#查询是否点赞
+@router.get("/api/skill_likes")
+async def check_like_status(skill_id: int, user_id: int, db: Session = Depends(get_db)):
+    is_liked = (
+        db.query(SkillLike)
+        .filter(SkillLike.skill_id == skill_id, SkillLike.user_id == user_id)
+        .first()
+    )
+    return {"is_liked": is_liked is not None}
+
+#更改点赞状态
+@router.post("/api/skill_likes")
+async def like_skill(skill_like: SkillLike, db: Session = Depends(get_db)):
+    existing_like = (
+        db.query(SkillLike)
+        .filter(SkillLike.skill_id == skill_like.skill_id, SkillLike.user_id == skill_like.user_id)
+        .first()
+    )
+    if existing_like:
+        raise HTTPException(status_code=400, detail="已经点赞过")
+
+    new_like = SkillLike(
+        user_id=skill_like.user_id,
+        skill_id=skill_like.skill_id,
+        like_date=datetime.now(),
+    )
+    db.add(new_like)
+
+    # 更新 SkillInfo 的点赞数量
+    skill = db.query(SkillInfo).filter(SkillInfo.skill_id == skill_like.skill_id).first()
+    if skill:
+        skill.skill_likes += 1
+
+    db.commit()
+    return {"message": "点赞成功"}
+
+@router.delete("/api/skill_likes")
+async def unlike_skill(skill_id: int, user_id: int, db: Session = Depends(get_db)):
+    existing_like = (
+        db.query(SkillLike)
+        .filter(SkillLike.skill_id == skill_id, SkillLike.user_id == user_id)
+        .first()
+    )
+    if not existing_like:
+        raise HTTPException(status_code=400, detail="尚未点赞")
+
+    db.delete(existing_like)
+
+    # 更新 SkillInfo 的点赞数量
+    skill = db.query(SkillInfo).filter(SkillInfo.skill_id == skill_id).first()
+    if skill:
+        skill.skill_likes -= 1
+
+    db.commit()
+    return {"message": "取消点赞成功"}
 
 
 # 确定交换关系

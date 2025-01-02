@@ -11,5 +11,5 @@ class SkillLike(Base):
 
     # 复合主键
     __table_args__ = (
-        PrimaryKeyConstraint("user_id", "skill_id", "like_date"),
+        PrimaryKeyConstraint("user_id", "skill_id", "like_id"),
     )

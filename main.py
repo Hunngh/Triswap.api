@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
 from app.routers import user_router, admin_router
 from app.database.database import Base, engine, get_db
 
@@ -7,6 +8,9 @@ from app.database.database import Base, engine, get_db
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Triswap API", description="API for Triswap application", version="0.1.0")
+
+# 挂载静态文件目录
+app.mount("/uploaded_images", StaticFiles(directory="uploaded_images"), name="uploaded_images")
 
 # 配置 CORS 中间件
 app.add_middleware(
