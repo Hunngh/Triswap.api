@@ -33,8 +33,6 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models.user_skill_info import UserSkillInfo
 
-#删除用户
-
 
 class UserService:
     def __init__(self, db: Session):

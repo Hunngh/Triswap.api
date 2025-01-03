@@ -60,8 +60,8 @@ def login_route(login_request: LoginRequest, db: Session = Depends(get_db)):
 
 #用户注册
 class RegisterRequest(BaseModel):
-    password: str
     email: str
+    password: str
 
 @router.post("/api/register")
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
@@ -75,6 +75,8 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
     new_user = UserInfo(
         email=request.email,
         password=request.password,  # 建议对密码进行加密存储
+        account=request.email,
+        status="active",
         created=datetime.utcnow()  # 自动生成注册时间
     )
     db.add(new_user)
