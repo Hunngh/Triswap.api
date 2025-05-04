@@ -1,0 +1,48 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+env/
+*.venv/
+
+# Dependency directories
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Flask instance folder
+instance/
+
+# Flask configuration files (if sensitive)
+*.env
+
+# IDE configuration files
+.idea/
+.vscode/
+
+# macOS specific files
+.DS_Store
+
+# Windows specific files
+Thumbs.db
+
+# Logs
+*.log
+
+# Database files (if SQLite)
+*.db
+*.sqlite
+
+# Test result files
+nosetests.xml
+coverage.xml
+*.cover
+
+# Other generated files
+*.egg
+*.egg-info
+dist/
+build/
+*.egg-info/
